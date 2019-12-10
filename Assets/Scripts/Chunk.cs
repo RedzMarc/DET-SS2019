@@ -152,13 +152,16 @@ public class Chunk
 						continue;
 					}
 
-					int surfaceHeight = Utils.GenerateHeight(worldX,worldZ);
+					int surfaceHeight = Utils.GenerateHeight(10,10);  //(worldX,worldZ);
 					
                     // Place bedrock at height 0
 					if(worldY == 0)
 						chunkData[x,y,z] = new Block(Block.BlockType.BEDROCK, pos, 
 						                chunk.gameObject, this);
-                    // Place Diamond, Redstone or Stone at certain heights and probabilities
+
+
+				
+                    /* Place Diamond, Redstone or Stone at certain heights and probabilities
 					else if(worldY <= Utils.GenerateStoneHeight(worldX,worldZ))
 					{
 						if(Utils.fBM3D(worldX, worldY, worldZ, 0.01f, 2) < 0.4f && worldY < 40)
@@ -171,24 +174,37 @@ public class Chunk
 							chunkData[x,y,z] = new Block(Block.BlockType.STONE, pos, 
 						                chunk.gameObject, this);
 					}
-                    // Place trunks of a tree or grass blocks on the surface
+					*/
+
+                    //Place trunks of a tree or grass blocks on the surface
 					else if(worldY == surfaceHeight)
 					{
+						/*
 						if(Utils.fBM3D(worldX, worldY, worldZ, 0.4f, 2) < 0.4f)
 							chunkData[x,y,z] = new Block(Block.BlockType.WOODBASE, pos, 
 						                chunk.gameObject, this);
 						else
-							chunkData[x,y,z] = new Block(Block.BlockType.GRASS, pos, 
-						                chunk.gameObject, this);
+						*/
+							System.Random pseudoRandom = new System.Random(Time.time.ToString().GetHashCode());
+
+							if((pseudoRandom.Next(0, 100) < 50)){
+								chunkData[x,y,z] = new Block(Block.BlockType.BEDROCK, pos, chunk.gameObject, this);
+							}else{
+								chunkData[x,y,z] = new Block(Block.BlockType.SAND, pos, chunk.gameObject, this);
+							}
 					}
+					
+
+
                     // Place dirt blocks
 					else if(worldY < surfaceHeight)
 						chunkData[x,y,z] = new Block(Block.BlockType.DIRT, pos, 
 						                chunk.gameObject, this);
-                    // Place water blocks below height 65
+                    /*  Place water blocks below height 65
 					else if(worldY < 65)
 						chunkData[x,y,z] = new Block(Block.BlockType.WATER, pos, 
 						                fluid.gameObject, this);
+					*/
                     // Place air blocks
 					else
 					{
@@ -196,14 +212,59 @@ public class Chunk
 						                chunk.gameObject, this);
 					}
 
-                    // Create caves
+                    /* Create caves
 					if(chunkData[x,y,z].blockType != Block.BlockType.WATER && Utils.fBM3D(worldX, worldY, worldZ, 0.1f, 3) < 0.42f)
 						chunkData[x,y,z] = new Block(Block.BlockType.AIR, pos, 
 						                chunk.gameObject, this);
-
+					
 					status = ChunkStatus.DRAW;
+					*/
 				}
 	}
+
+
+
+private void BuildChunk(int[,] map)
+	{
+        chunkData = new Block[World.chunkSize,World.chunkSize,World.chunkSize];
+		for(int z = 0; z < World.chunkSize; z++)
+			for(int y = 0; y < World.chunkSize; y++)
+				for(int x = 0; x < World.chunkSize; x++)	
+				{
+					Vector3 pos = new Vector3(x,y,z);
+					int worldX = (int)(x + chunk.transform.position.x);
+					int worldY = (int)(y + chunk.transform.position.y);
+					int worldZ = (int)(z + chunk.transform.position.z);
+
+
+					int surfaceHeight = Utils.GenerateHeight(10,10);  //(worldX,worldZ);
+					
+					chunkData[x,y,z] = new Block( ((map[x,y] == 0)? Block.BlockType.AIR : Block.BlockType.DIRT), pos, chunk.gameObject, this);
+
+				}
+	}
+
+
+private void BuildChunk(int[,,] map)
+	{
+        chunkData = new Block[World.chunkSize,World.chunkSize,World.chunkSize];
+		for(int z = 0; z < World.chunkSize; z++)
+			for(int y = 0; y < World.chunkSize; y++)
+				for(int x = 0; x < World.chunkSize; x++)	
+				{
+					Vector3 pos = new Vector3(x,y,z);
+					int worldX = (int)(x + chunk.transform.position.x);
+					int worldY = (int)(y + chunk.transform.position.y);
+					int worldZ = (int)(z + chunk.transform.position.z);
+
+
+					int surfaceHeight = Utils.GenerateHeight(10,10);  //(worldX,worldZ);
+					
+					chunkData[x,y,z] = new Block( ((map[x,y,z] == 0)? Block.BlockType.AIR : Block.BlockType.DIRT), pos, chunk.gameObject, this);
+
+				}
+	}
+
 
     /// <summary>
     /// Redraws this chunk by destroying all mesh and collision components and then creating new ones.
@@ -321,7 +382,37 @@ public class Chunk
 		fluidMaterial = t;
 		BuildChunk();                                                   // Start building the chunk
 	}
+
+		public Chunk (Vector3 position, Material c, Material t, int[,] map)
+    {
+        // Create GameObjects holding the chunk's meshes
+		chunk = new GameObject(World.BuildChunkName(position));         // solid chunk mesh, e.g. dirt blocks
+		chunk.transform.position = position;
+		fluid = new GameObject(World.BuildChunkName(position)+"_F");    // transparent chunk mesh, e.g. water blocks
+		fluid.transform.position = position;
+
+		mb = chunk.AddComponent<ChunkMB>();                             // Adds the chunk's Monobehaviour
+		mb.SetOwner(this);
+		cubeMaterial = c;
+		fluidMaterial = t;
+		BuildChunk(map);                                                   // Start building the chunk
+	}
 	
+		public Chunk (Vector3 position, Material c, Material t, int[,,] map)
+    {
+        // Create GameObjects holding the chunk's meshes
+		chunk = new GameObject(World.BuildChunkName(position));         // solid chunk mesh, e.g. dirt blocks
+		chunk.transform.position = position;
+		fluid = new GameObject(World.BuildChunkName(position)+"_F");    // transparent chunk mesh, e.g. water blocks
+		fluid.transform.position = position;
+
+		mb = chunk.AddComponent<ChunkMB>();                             // Adds the chunk's Monobehaviour
+		mb.SetOwner(this);
+		cubeMaterial = c;
+		fluidMaterial = t;
+		BuildChunk(map);                                                   // Start building the chunk
+	}
+
 	public void CombineQuads(GameObject o, Material m)
 	{
 		// 1. Combine all children meshes

@@ -7,8 +7,13 @@ using Realtime.Messaging.Internal;
 /// The world MonoBehavior is in charge of creating, updating and destroying chunks based on the player's location.
 /// These mechanisms are completed with the help of Coroutines (IEnumerator methods). https://docs.unity3d.com/Manual/Coroutines.html
 /// </summary>
-public class World : MonoBehaviour
-{
+public class CaveWorld : MonoBehaviour
+{   
+
+    public int caveWidth = 10;
+    public int caveHeight = 20; 
+	public int caveDepth = 20;
+
 	public GameObject player;
 	public Material textureAtlas;
 	public Material fluidTexture;
@@ -24,6 +29,9 @@ public class World : MonoBehaviour
 	public static CoroutineQueue queue;
 
 	public Vector3 lastbuildPos;
+
+    MapGiver mapGiver = new MapGiver();
+	Automaton automaton = new Automaton();
 
     /// <summary>
     /// Creates a name for the chunk based on its position
@@ -108,6 +116,42 @@ public class World : MonoBehaviour
 			c.fluid.transform.parent = this.transform;
 			chunks.TryAdd(c.chunk.name, c);
 		}
+	}
+
+    	private void BuildChunkAt(int x, int y, int z, int[,] map)
+	{
+		Vector3 chunkPosition = new Vector3(x*chunkSize, 
+											y*chunkSize, 
+											z*chunkSize);
+					
+		Chunk c;
+        string n = BuildChunkName(chunkPosition);
+
+        if(!chunks.TryGetValue(n, out c))
+		{
+			c = new Chunk(chunkPosition, textureAtlas, fluidTexture, map);
+			c.chunk.transform.parent = this.transform;
+			c.fluid.transform.parent = this.transform;
+			chunks.TryAdd(c.chunk.name, c);
+		}	
+	}
+
+	private void BuildChunkAt(int x, int y, int z, int[,,] map)
+	{
+		Vector3 chunkPosition = new Vector3(x*chunkSize, 
+											y*chunkSize, 
+											z*chunkSize);
+					
+		Chunk c;
+        string n = BuildChunkName(chunkPosition);
+
+        if(!chunks.TryGetValue(n, out c))
+		{
+			c = new Chunk(chunkPosition, textureAtlas, fluidTexture, map);
+			c.chunk.transform.parent = this.transform;
+			c.fluid.transform.parent = this.transform;
+			chunks.TryAdd(c.chunk.name, c);
+		}	
 	}
 
     /// <summary>
@@ -225,24 +269,85 @@ public class World : MonoBehaviour
 		this.transform.position = Vector3.zero;
 		this.transform.rotation = Quaternion.identity;	
 
+        World.chunks = chunks;
 		queue = new CoroutineQueue(maxCoroutines, StartCoroutine);
 
-		// Build starting chunk
-		BuildChunkAt((int)(player.transform.position.x/chunkSize),
-											(int)(player.transform.position.y/chunkSize),
-											(int)(player.transform.position.z/chunkSize));
-		// Draw starting chunk
+        mapGiver.width = caveWidth;
+        mapGiver.height = caveHeight;
+        mapGiver.GenerateNewMap();
+        int[,] caveMap = mapGiver.currentMap;
+		int[,,] cave = new int[caveWidth,caveHeight,chunkSize]; 
+
+		for (int i = 0; i < caveWidth; i++)
+		{
+			for (int j = 0; j < caveHeight; j++)
+			{
+				for (int k = 0; k < chunkSize; k++)
+				{
+					cave[i,j,k] = caveMap[i,j];
+				}
+			}
+		}
+
+        for (int i = 0; i < caveWidth / chunkSize; i++)
+        {
+            for (int j = 0; j < caveHeight / chunkSize; j++)
+            {
+				for (int k = 0; k < chunkSize / chunkSize; k++)
+				{
+                int[,,] chunckMap = new int[chunkSize,chunkSize,chunkSize];
+					for (int l = 0; l < chunkSize; l++)
+					{
+						for (int m = 0; m < chunkSize; m++)
+						{
+							for(int n = 0; n < chunkSize; n++){
+								chunckMap[l,m,n] = cave[i*chunkSize+l,j*chunkSize+m,k*chunkSize+n];
+							}
+						}
+					}
+                BuildChunkAt(i,j,k,chunckMap);
+				}
+            }
+        }
+
 		queue.Run(DrawChunks());
 
-		// Create further chunks
-		queue.Run(BuildRecursiveWorld((int)(player.transform.position.x/chunkSize),
-											(int)(player.transform.position.y/chunkSize),
-											(int)(player.transform.position.z/chunkSize),radius,radius));
+		/*
+		automaton.CreateNew();
+		int[,,] cave3D = automaton.cells;
+
+
+		for (int i = 0; i < caveWidth / chunkSize; i++)
+        {
+            for (int j = 0; j < caveHeight / chunkSize; j++)
+            {
+				for (int m = 0; m < caveDepth / chunkSize; m++)
+				{
+					int[,,] chunckMap = new int[chunkSize,chunkSize,chunkSize];
+					for (int k = 0; k < chunkSize; k++)
+					{
+						for (int l = 0; l < chunkSize; l++)
+						{
+							for (int n = 0; n < chunkSize; n++)
+							{
+								
+								chunckMap[k,l,n] = cave3D[i*chunkSize+k,j*chunkSize+l,m*chunkSize+n];
+							}
+						}
+					}
+
+                	BuildChunkAt(i,j,m,chunckMap);
+				}
+            }
+        }
+		*/
+
 	}
 	
     /// <summary>
     /// Unity lifecycle update method. Actviates the player's GameObject. Updates chunks based on the player's position.
     /// </summary>
+
 	void Update ()
     {
         // Determine whether to build/load more chunks around the player's location
